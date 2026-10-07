@@ -41,11 +41,13 @@ CSV: [theo frame](../results/yaw_perturb_sweep.csv), [theo frame/class](../resul
 
 ## 3. Failure case
 
-Nêu khi nào hệ thống hoặc phương pháp fail, vì sao fail, và liên hệ tới lớp nào trong 6 lớp debug: I/O, Geometry, Time, Preprocess, Model, Metric.
+![Yaw 0 và 2 độ: pedestrian lệch khỏi box](../results/figures/fail_01_yaw_2deg_pedestrian.png)
 
-![failure](../results/figures/fail_[ĐIỀN].png)
+Trường hợp: frame 000011, yaw +2°; ảnh phóng cùng vùng pedestrian ở hai cấu hình, box GT vàng, hit xanh, miss đỏ. Tỷ lệ ghi trên ảnh là toàn bộ class Pedestrian trong frame, không chỉ object được phóng. Pedestrian có 307 cặp điểm–object: baseline 306 hit (99.67%), yaw 2° còn 65 hit (21.17%), giảm 78.50 điểm phần trăm. Tỷ lệ tổng frame giảm 62.34 điểm.
 
-[ĐIỀN]
+Nguyên nhân/lớp debug: **Geometry — extrinsic calibration drift**; điểm và labels giữ nguyên, chỉ extrinsic bị xoay trong LiDAR frame. Gần tâm ảnh, độ trượt xấp xỉ `f*tan(theta)`; P2 của frame có f = 721.5377 px, theta = 2° cho 25.1967 px. Script đo độ trượt ngang trung vị của các điểm thuộc pedestrian được đánh dấu là −25.4432 px (dọc +0.2618 px). Box này rộng 15.33 px, z = 34.08 m, nên độ lệch vượt bề rộng box; các pedestrian khác rộng 27.67–59.74 px. Xấp xỉ không mô tả chính xác mọi vị trí ảnh do góc nhìn và phép ghép extrinsic.
+
+Cách phát hiện: so tỷ lệ hit theo class với baseline đã QA, đồng thời xem overlay, kiểm tra timestamp rồi calibration version. Trong hai frame có Pedestrian, baseline thấp nhất 95.5322%, còn yaw 0.5° cao nhất 91.3272%; trung điểm là **93.4297%**, chọn ngưỡng thăm dò 93.43% để phân tách hai nhóm đã đo. Đây là ngưỡng từ mẫu nhỏ, chưa được kiểm định độc lập hoặc theo thời gian; cần hiệu chuẩn lại theo distance, occlusion và sensor. Cảnh báo khi tỷ lệ dưới ngưỡng trong nhiều frame liên tiếp đủ điểm; class không có điểm là NaN, không kích cảnh báo. Ba frame rời rạc chưa chứng minh tỷ lệ báo động giả hay hiệu quả cảnh báo theo chuỗi.
 
 ## 4. Khuyến nghị nếu triển khai thật
 
