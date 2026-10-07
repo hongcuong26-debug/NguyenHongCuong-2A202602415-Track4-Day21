@@ -1,6 +1,4 @@
-# Báo cáo Day 6: [ĐIỀN tên đề tài ngắn]
-
-> Thay **mọi** ô có chữ ĐIỀN nằm trong ngoặc vuông bằng nội dung của bạn, xoá luôn cả dấu ngoặc vuông. Lệnh `python tools/check_submission.py` sẽ báo FAIL nếu còn sót bất kỳ chỗ nào.
+# Báo cáo Day 6: Độ nhạy projection LiDAR–camera với yaw
 
 - **Họ tên:** Nguyễn Hồng Cường
 - **MSSV:** 2A202602415
@@ -10,11 +8,11 @@
 - **Dataset:** data/synthetic, data/kitti_mini
 - **Các frame đã dùng:** KITTI 000008, 000011, 000049; synthetic 000000–000004 (health), 000000 (projection test)
 
-> Hãy viết ngắn: mỗi mục từ 3 đến 8 dòng, ưu tiên số liệu và hình ảnh.
+Môi trường chạy: Windows, Python 3.12.14; NumPy 2.5.3, OpenCV 5.0.0, Pandas 3.0.6, Matplotlib 3.11.2. CP0: KITTI 80/80 và nuScenes 173/173 file PASS; synthetic health đủ 5 frame, khoảng 0.10% điểm invalid/frame. Không sửa data. [Phiên bản dependencies](../results/requirements-lock.txt).
 
 ## 1. Claim
 
-Claim nháp, chưa phải kết luận: “Lệch yaw 1° làm hit_ratio của frame có nhiều người đi bộ giảm ít nhất 20 điểm phần trăm so với calibration gốc, trong khi frame đông xe giảm dưới 5 điểm phần trăm.”
+Claim cuối: **Trong ba frame KITTI đã chọn, yaw +1° làm hit_ratio frame 000011 giảm 29.38 điểm phần trăm (99.45% → 70.07%), còn frame 000008 giảm 2.54 điểm (99.63% → 97.09%).** Claim nháp “frame nhiều người đi bộ giảm ít nhất 20 điểm, frame đông xe giảm dưới 5 điểm” được xác nhận trong phạm vi mẫu này; không phải kết luận cho mọi cảnh giao thông.
 
 Biến độc lập: `yaw_deg = 0, 0.5, 1, 2, 3` độ quanh trục z-up của LiDAR. Giữ nguyên dataset KITTI, ba frame 000008/000011/000049, labels, classes Car/Van/Pedestrian/Cyclist, toàn bộ range và code metric. Mỗi cấu hình chỉ thay yaw; không dùng ngẫu nhiên.
 Metric chính: `hit_ratio = hits / object_points`, đếm cặp điểm–object thuộc box 3D bằng calibration gốc, finite và trong FOV camera gốc (z > 0.1 m). Mẫu số cố định; điểm ra ngoài ảnh sau perturb là miss. Metric phụ: n_points, inside_image, object_points và tỷ lệ theo class. Class vắng hoặc không có điểm ghi NaN.
@@ -51,22 +49,49 @@ Cách phát hiện: so tỷ lệ hit theo class với baseline đã QA, đồng 
 
 ## 4. Khuyến nghị nếu triển khai thật
 
-Use-case cụ thể (ADAS / robot / drone), trade-off và bước tiếp theo.
+Use-case: xe giao hàng tự hành hoặc ADAS đô thị; theo dõi hit_ratio riêng Pedestrian/Car/Van/Cyclist để phát hiện bracket bị lệch sau va chạm. Không dùng inside_image làm metric calibration chính: nó tăng nhẹ ngay cả khi alignment suy giảm nghiêm trọng trong thí nghiệm.
 
-[ĐIỀN]
+Ngưỡng thăm dò Pedestrian 93.43% ở mục 3 chỉ là điểm xuất phát. Cảnh báo khi thấp hơn ngưỡng trong nhiều frame liên tiếp đủ điểm, đối chiếu camera/LiDAR time sync rồi yêu cầu QA hoặc recalibration. Ghi log timestamp, frame ID, class, distance, hit_ratio, số điểm, calibration version, nhiệt độ/va chạm nếu có. Nhãn GT của lab không có sẵn khi xe chạy; triển khai cần box/detection đã QA hoặc edge-alignment và phải đo thêm sai số detector, domain shift, occlusion.
+
+Tính membership một lần và dùng lại giúp giảm chi phí; xử lý đủ điểm/overlay mỗi frame tốn tài nguyên, có thể lấy mẫu để giám sát nhưng cần đo độ trễ và nguy cơ bỏ sót drift. Chưa đo latency nên không tuyên bố đạt thời gian thực. Xác nhận ngưỡng và độ dài chuỗi trên log độc lập trước khi nối vào quyết định vận hành.
 
 ## 5. Cách chạy lại
 
-Các lệnh tái tạo lại toàn bộ kết quả từ repo sạch.
+Chạy từ thư mục gốc repo. Trên Windows PowerShell, dùng Python 3.12 để tương thích bộ dependencies đã khóa (lần đo dùng 3.12.14); code lab yêu cầu tối thiểu 3.10 nhưng bộ khóa này không cam kết chạy trên 3.10. Môi trường .venv không commit. Nếu máy chỉ có uv, có thể dùng `uv venv --python 3.12 .venv` và `uv pip install --python .venv/Scripts/python.exe -r requirements.txt -r results/requirements-lock.txt` thay bước tạo/cài bên dưới.
 
-```bash
-[ĐIỀN]
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt -r results/requirements-lock.txt
+$env:MPLCONFIGDIR = Join-Path $env:TEMP 'day21-matplotlib'
+python -c "import numpy, cv2, matplotlib, pandas; print('OK')"
+python tools/verify_data.py --data-root data/kitti_mini
+python tools/verify_data.py --data-root data/nuscenes_mini_subset
+python -m starter.data_health --data-root data/synthetic
+python -m src.test_projection
+python -m src.test_metric
+python -m starter.projection --data-root data/synthetic --frame 000000
+python -m starter.projection --data-root data/kitti_mini --frame 000008
+python -m starter.projection --data-root data/kitti_mini --frame 000011
+python -m starter.projection --data-root data/kitti_mini --frame 000049
+python -m src.exp_yaw_sweep --data-root data/kitti_mini --frames 000008 000011 000049 --yaw-levels 0 0.5 1 2 3
+python -m src.plot_yaw_sweep
+python -m src.make_failure_figure
+python -m src.exp_yaw_sweep --out results/check_rerun.csv --class-out results/check_rerun_by_class.csv
+python -c "from pathlib import Path; p=Path('results'); pairs=[('yaw_perturb_sweep.csv','check_rerun.csv'),('yaw_perturb_by_class.csv','check_rerun_by_class.csv')]; assert all((p/a).read_bytes()==(p/b).read_bytes() for a,b in pairs); [(p/b).unlink() for a,b in pairs]; print('Byte-for-byte PASS')"
+python tools/check_submission.py
+git diff --check
+git diff -- data/
+git status --short
 ```
+
+macOS/Linux: kích hoạt bằng `source .venv/bin/activate`, đặt `MPLCONFIGDIR` vào thư mục ghi được; các lệnh Python giữ nguyên. Git trên Windows có thể checkout CSV thành CRLF: so byte hai lần chạy mới tạo (script cố định LF), so nội dung/số liệu với bản checkout. Mọi CLI trong src hỗ trợ `--help`.
+
+Giải thích để vấn đáp: thêm cột 1 vào (x,y,z) để ma trận 4×4 áp dụng cả rotation lẫn translation; chuỗi là P2·R0_rect·Tr_velo_to_cam. Lọc z_cam ≤ 0 vì điểm sau camera có thể chiếu ngược lên ảnh, và lọc z ≤ 0.1 m để tránh vùng gần kỳ dị. `points_in_box` trừ bottom center rồi nhân nghịch đảo rotation_y, kiểm tra x ∈ [−l/2,l/2], y ∈ [−h,0], z ∈ [−w/2,w/2]. Hit là điểm trong box 3D gốc sau projection vẫn nằm trong bbox 2D tương ứng; box chồng lấp có thể đếm một điểm cho nhiều object. Pedestrian hẹp nên cùng độ trượt pixel mất tỷ lệ hit lớn hơn; FOV chỉ kiểm tra điểm còn nằm trong ảnh, không kiểm tra chúng khớp đúng object.
 
 ## 6. Khai báo sử dụng AI
 
-Ghi rõ đã dùng công cụ AI nào, dùng vào việc gì, và bạn đã tự kiểm chứng kết quả đó bằng cách nào. Nếu không dùng AI, ghi "Không sử dụng". Xem quy định ở `RULES.md` mục 2.
-
 | Công cụ | Dùng cho việc gì | Bạn đã kiểm chứng thế nào |
 |---|---|---|
-| [ĐIỀN] | | |
+| Codex / ChatGPT | Khảo sát repo, lập kế hoạch, hỗ trợ viết hai hàm projection, tests, benchmark, class analysis, biểu đồ, ảnh failure và REPORT | Codex đã thực thi 4 test projection + 2 test metric, đối chiếu điểm (10,0,0), chạy lại CSV giống từng byte, xem overlay/plot/failure và chạy check_submission. Học viên cần tự chạy lại và giải thích code/số liệu trước vấn đáp. |
+| Tài liệu và starter của lab Day 6 (không phải AI) | Quy ước KITTI, load_frame, perturb_extrinsic, demo overlay và mốc kiểm tra | Chỉ sửa hai hàm cho phép; toàn bộ benchmark mở rộng theo class trong src viết cho bài này. |
