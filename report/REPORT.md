@@ -21,13 +21,23 @@ Metric chính: `hit_ratio = hits / object_points`, đếm cặp điểm–object
 
 ## 2. Evidence
 
-Bảng hoặc plot số liệu, kèm ảnh/video demo. Ghi rõ đường dẫn file trong `results/`.
+CSV: [theo frame](../results/yaw_perturb_sweep.csv), [theo frame/class](../results/yaw_perturb_by_class.csv). 15 cấu hình và 60 dòng class; cả hai CSV chạy lần hai giống byte-for-byte, file kiểm tra đã xoá. Hai test metric và bốn test projection PASS.
 
-| Cấu hình / mức perturb | Metric 1 | Metric 2 | Ghi chú |
-|---|---|---|---|
-| [ĐIỀN] | | | |
+| Yaw (độ) | 000008: hit (%) | 000011: hit (%) | 000049: hit (%) |
+|---|---:|---:|---:|
+| 0 | 99.63 | 99.45 | 99.25 |
+| 0.5 | 98.83 | 87.45 | 97.50 |
+| 1 | 97.09 | 70.07 | 93.37 |
+| 2 | 91.85 | 37.10 | 83.89 |
+| 3 | 86.66 | 15.72 | 72.81 |
 
-![demo](../results/figures/[ĐIỀN].png)
+![Yaw sweep theo frame](../results/figures/yaw_sweep.png)
+![Yaw sweep theo class](../results/figures/yaw_sweep_by_class.png)
+![Demo baseline frame 000011](../results/figures/overlay_000011_r0.0_p0.0_y0.0_t0.0_0.0_0.0.png)
+
+- Yaw 1° làm frame người đi bộ 000011 giảm 29.38 điểm phần trăm, so với 2.54 điểm ở frame đông xe 000008. Mẫu số lần lượt 725 và 5127 cặp điểm–object; frame 000049 có 4557.
+- Gộp theo số cặp điểm–object (không lấy trung bình tỷ lệ frame), Pedestrian giảm 96.72% → 78.56% ở 1° (18.16 điểm), Car 99.76% → 95.44% (4.31 điểm), Van 100% → 91.47% (8.53 điểm). Dữ liệu ủng hộ Pedestrian nhạy hơn Car/Van trong mẫu này; Cyclist không xuất hiện, ghi NaN và không vẽ đường giả bằng 0.
+- Ở 000011 yaw 2°, inside_image tăng 19946 → 19963 nhưng hit_ratio giảm 99.45% → 37.10%: FOV không đo đúng alignment. Baseline tổng không đạt 100% phù hợp với việc nhãn 2D/3D do người gán không khớp tuyệt đối; occlusion/truncation cũng ảnh hưởng. Chưa suy rộng kết quả ra dataset/sensor khác.
 
 ## 3. Failure case
 
